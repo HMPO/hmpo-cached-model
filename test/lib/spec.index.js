@@ -9,12 +9,16 @@ chai.use(require('sinon-chai'));
 const HmpoCachedModel = require('../../lib');
 const HmpoModel = require('hmpo-model');
 
+const hmpoLogger = require('hmpo-logger');
+hmpoLogger.config({ app: false, error: false, console: false });
+
 describe('HmpoCachedModel', () => {
     let clock, instance, storeFactory, storeStub, options, cb;
 
     beforeEach(() => {
         clock = sinon.useFakeTimers(1234567890000);
         sinon.stub(HmpoModel.prototype, 'fetch').yields(null, { a: 1, b: 2 });
+        sinon.stub(HmpoModel.prototype, 'reset');
         sinon.stub(HmpoModel.prototype, 'set');
         sinon.stub(HmpoModel.prototype, 'get');
         sinon.stub(HmpoModel.prototype, 'emit');
@@ -41,6 +45,7 @@ describe('HmpoCachedModel', () => {
 
     afterEach(() => {
         HmpoModel.prototype.fetch.restore();
+        HmpoModel.prototype.reset.restore();
         HmpoModel.prototype.set.restore();
         HmpoModel.prototype.get.restore();
         HmpoModel.prototype.emit.restore();
@@ -155,6 +160,7 @@ describe('HmpoCachedModel', () => {
 
         it('should set data and call callback', () => {
             instance.getStoreData(cb);
+            HmpoModel.prototype.reset.should.have.been.calledWithExactly();
             HmpoModel.prototype.set.should.have.been.calledWithExactly({
                 a: 1, b: 2
             });
@@ -243,6 +249,7 @@ describe('HmpoCachedModel', () => {
 
         it('should set data to model', () => {
             instance.getDataFromAPI(cb);
+            HmpoModel.prototype.reset.should.have.been.calledWithExactly();
             HmpoModel.prototype.set.should.have.been.calledWithExactly({
                 a: 1, b: 2
             });
@@ -451,8 +458,8 @@ describe('HmpoCachedModel', () => {
         });
 
         it('should clear the two interval timers', () => {
-            instance.storeTimer = 123;
-            instance.apiTimer = 456;
+            instance.storeTimer = setInterval(()=>{}, 10000);
+            instance.apiTimer = setInterval(()=>{}, 10000);
             instance.stop();
             expect(instance.storeTimer).to.not.be.ok;
             expect(instance.apiTimer).to.not.be.ok;
