@@ -43,3 +43,9 @@ If the API returns an object, all keys are saved to the model, otherwise the dat
 
 Extend and override `parse()` to change the way the incomming data from the API is processed.
 
+
+## Upgrading
+
+The deprecated `request` library has been replaced with `got` in `hmpo-model`.
+The new `got` library doesn't automativally use the proxy environment variables so you would need to use something like `global-agent` in your
+app if you need to specify proxies by environment arguments.
