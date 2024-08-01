@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/UKHomeOffice/passports-cached-model.git"
+    "url": "https://github.com/HMPO/hmpo-cached-model.git"
   },
   "author": "HMPO",
   "license": "MIT",
@@ -19,22 +19,22 @@
     "node": ">=14"
   },
   "bugs": {
-    "url": "https://github.com/UKHomeOffice/passports-cached-model/issues"
+    "url": "https://github.com/HMPO/hmpo-cached-model/issues"
   },
-  "homepage": "https://github.com/UKHomeOffice/passports-cached-model",
+  "homepage": "https://github.com/HMPO/hmpo-cached-model#readme",
   "dependencies": {
-    "async": "^3.2.4",
-    "debug": "^4.3.4",
-    "hmpo-model": "^5.0.0"
+    "async": "^3.2.5",
+    "debug": "^4.3.6",
+    "hmpo-model": "^5.0.1"
   },
   "devDependencies": {
-    "chai": "^4.3.6",
-    "eslint": "^8.18.0",
-    "hmpo-logger": "^7.0.0",
-    "mocha": "^10.0.0",
-    "nyc": "^15.1.0",
-    "sinon": "^15.0.4",
-    "sinon-chai": "^3.6.0"
+    "chai": "^4.5.0",
+    "eslint": "^8.57.0",
+    "hmpo-logger": "^7.0.2",
+    "mocha": "^10.7.0",
+    "nyc": "^17.0.0",
+    "sinon": "^18.0.0",
+    "sinon-chai": "^3.7.0"
   },
   "nyc": {
     "all": true,
