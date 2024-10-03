@@ -1,6 +1,8 @@
 'use strict';
 
 const chai = require('chai');
+const { expect } = require('chai');
+
 chai.should();
 global.expect = chai.expect;
 global.sinon = require('sinon');
