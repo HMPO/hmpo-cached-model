@@ -26,13 +26,13 @@
   "dependencies": {
     "async": "^3.2.5",
     "debug": "4.3.7",
-    "hmpo-model": "^6.0.1"
+    "hmpo-model": "^6.0.2"
   },
   "devDependencies": {
     "chai": "^4.5.0",
     "eslint": "^9.11.1",
     "globals": "^15.9.0",
-    "hmpo-logger": "^8.0.0",
+    "hmpo-logger": "^8.0.2",
     "mocha": "^10.7.3",
     "nyc": "^17.1.0",
     "sinon": "^19.0.2",
