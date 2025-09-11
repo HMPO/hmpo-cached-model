@@ -25,7 +25,7 @@
   "homepage": "https://github.com/HMPO/hmpo-cached-model#readme",
   "dependencies": {
     "async": "^3.2.5",
-    "debug": "4.3.7",
+    "debug": "^4.3.7",
     "hmpo-model": "^6.0.2"
   },
   "devDependencies": {
