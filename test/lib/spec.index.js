@@ -14,8 +14,22 @@ const HmpoModel = require('hmpo-model');
 const hmpoLogger = require('hmpo-logger');
 hmpoLogger.config({ app: false, error: false, console: false });
 
+async function expectRejected(promise, expected) {
+    try {
+        await promise;
+        throw new Error('Expected promise to reject');
+    } catch (err) {
+        if (expected && expected.prototype instanceof Error) {
+            expect(err).to.be.instanceOf(expected);
+            return;
+        }
+
+        expect(err).to.equal(expected);
+    }
+}
+
 describe('HmpoCachedModel', () => {
-    let clock, instance, storeFactory, storeStub, options, cb;
+    let clock, instance, storeFactory, storeStub, options;
 
     beforeEach(() => {
         clock = sinon.useFakeTimers(1234567890000);
@@ -26,8 +40,8 @@ describe('HmpoCachedModel', () => {
         sinon.stub(HmpoModel.prototype, 'emit');
 
         storeStub = {
-            get: sinon.stub(),
-            set: sinon.stub().yields(null)
+            get: sinon.stub().resolves(),
+            set: sinon.stub().resolves()
         };
 
         storeFactory = {
@@ -41,8 +55,6 @@ describe('HmpoCachedModel', () => {
             apiInterval: 2000
         };
         instance = new HmpoCachedModel(null, options);
-
-        cb = sinon.stub();
     });
 
     afterEach(() => {
@@ -72,17 +84,17 @@ describe('HmpoCachedModel', () => {
 
         it('should throw an error if no key is supplied', () => {
             delete options.key;
-            expect( () => new HmpoCachedModel(null, options) ).to.throw();
+            expect(() => new HmpoCachedModel(null, options)).to.throw();
         });
 
         it('should throw an error if no store is supplied', () => {
             delete options.store;
-            expect( () => new HmpoCachedModel(null, options) ).to.throw();
+            expect(() => new HmpoCachedModel(null, options)).to.throw();
         });
 
         it('should throw an error if no store getClient function is supplied', () => {
             options.store = {};
-            expect( () => new HmpoCachedModel(null, options) ).to.throw();
+            expect(() => new HmpoCachedModel(null, options)).to.throw();
         });
     });
 
@@ -95,118 +107,106 @@ describe('HmpoCachedModel', () => {
             instance.checkStoreLastModified.should.be.a('function');
         });
 
-        it('should call callback if there is no this.lastModified', () => {
+        it('should resolve if there is no this.lastModified', async () => {
             delete instance.lastModified;
-            instance.checkStoreLastModified(cb);
-            cb.should.have.been.calledWithExactly();
+            await instance.checkStoreLastModified();
             storeStub.get.should.not.have.been.called;
         });
 
-        it('should call store.get with lastModified key', () => {
-            instance.checkStoreLastModified(cb);
-            storeStub.get.should.have.been.calledWithExactly('root-key-last-modified', sinon.match.func);
+        it('should call store.get with lastModified key', async () => {
+            await expectRejected(instance.checkStoreLastModified(), HmpoCachedModel.ABORT);
+            storeStub.get.should.have.been.calledWithExactly('root-key-last-modified');
         });
 
-        it('should call callback with no arguments if it is time to fetch from the store', () => {
-            storeStub.get.yields(null, '1234567891000');
-            instance.checkStoreLastModified(cb);
-            cb.should.have.been.calledWithExactly();
+        it('should resolve if it is time to fetch from the store', async () => {
+            storeStub.get.resolves('1234567891000');
+            await instance.checkStoreLastModified();
         });
 
-        it('should call callback with true if there is no next check in the store', () => {
-            storeStub.get.yields(null, '');
-            instance.checkStoreLastModified(cb);
-            cb.should.have.been.calledWithExactly(true);
+        it('should reject with ABORT if there is no next check in the store', async () => {
+            storeStub.get.resolves('');
+            await expectRejected(instance.checkStoreLastModified(), HmpoCachedModel.ABORT);
         });
 
-        it('should call callback with error from store.get', () => {
+        it('should reject with error from store.get', async () => {
             let err = new Error();
-            storeStub.get.yields(err);
-            instance.checkStoreLastModified(cb);
-            cb.should.have.been.calledWithExactly(err);
+            storeStub.get.rejects(err);
+            await expectRejected(instance.checkStoreLastModified(), err);
         });
 
-        it('should call callback with ABORT if it is not time to fetch', () => {
-            storeStub.get.yields(null, '1234567880000');
-            instance.checkStoreLastModified(cb);
-            cb.should.have.been.calledWithExactly(HmpoCachedModel.ABORT);
+        it('should reject with ABORT if it is not time to fetch', async () => {
+            storeStub.get.resolves('1234567880000');
+            await expectRejected(instance.checkStoreLastModified(), HmpoCachedModel.ABORT);
         });
     });
 
     describe('getStoreData', () => {
         beforeEach(() => {
-            storeStub.get.yields(null, '{"a":1,"b":2}');
+            storeStub.get.resolves('{"a":1,"b":2}');
         });
 
         it('should be a function', () => {
             instance.getStoreData.should.be.a('function');
         });
 
-        it('should call store.get with data key', () => {
-            instance.getStoreData(cb);
-            storeStub.get.should.have.been.calledWithExactly('root-key-data', sinon.match.func);
+        it('should call store.get with data key', async () => {
+            await instance.getStoreData();
+            storeStub.get.should.have.been.calledWithExactly('root-key-data');
         });
 
-        it('should call callback with error from store.get', () => {
+        it('should reject with error from store.get', async () => {
             let err = new Error();
-            storeStub.get.yields(err);
-            instance.getStoreData(cb);
-            cb.should.have.been.calledWithExactly(err);
+            storeStub.get.rejects(err);
+            await expectRejected(instance.getStoreData(), err);
         });
 
-        it('should call callback with JSON validation error', () => {
-            storeStub.get.yields(null, '{{{');
-            instance.getStoreData(cb);
-            cb.should.have.been.calledWithExactly(sinon.match.instanceOf(Error));
+        it('should reject with JSON validation error', async () => {
+            storeStub.get.resolves('{{{');
+            await expectRejected(instance.getStoreData(), SyntaxError);
         });
 
-        it('should set data and call callback', () => {
-            instance.getStoreData(cb);
+        it('should set data and resolve', async () => {
+            await instance.getStoreData();
             HmpoModel.prototype.reset.should.have.been.calledWithExactly();
             HmpoModel.prototype.set.should.have.been.calledWithExactly({
                 a: 1, b: 2
             });
             instance.lastModified.should.equal(Date.now());
-            cb.should.have.been.calledWithExactly();
         });
     });
 
     describe('getNextCheckTime', () => {
         beforeEach(() => {
-            storeStub.get.yields(null, '1234567880000');
+            storeStub.get.resolves('1234567880000');
         });
 
         it('should be a function', () => {
             instance.getNextCheckTime.should.be.a('function');
         });
 
-        it('should call store.get with next check key', () => {
-            instance.getNextCheckTime(cb);
-            storeStub.get.should.have.been.calledWithExactly('root-key-next-check', sinon.match.func);
+        it('should call store.get with next check key', async () => {
+            await instance.getNextCheckTime();
+            storeStub.get.should.have.been.calledWithExactly('root-key-next-check');
         });
 
-        it('should call callback with error from store.get', () => {
+        it('should reject with error from store.get', async () => {
             let err = new Error();
-            storeStub.get.yields(err);
-            instance.getNextCheckTime(cb);
-            cb.should.have.been.calledWithExactly(err);
+            storeStub.get.rejects(err);
+            await expectRejected(instance.getNextCheckTime(), err);
         });
 
-        it('should call callback with no args if the store value is invalid', () => {
-            storeStub.get.yields(null, '');
-            instance.getNextCheckTime(cb);
-            cb.should.have.been.calledWithExactly();
+        it('should resolve if the store value is invalid', async () => {
+            storeStub.get.resolves('');
+            await instance.getNextCheckTime();
         });
 
-        it('should call callback with no args if it is in the past', () => {
-            instance.getNextCheckTime(cb);
-            cb.should.have.been.calledWithExactly();
+        it('should resolve if it is in the past', async () => {
+            await instance.getNextCheckTime();
         });
 
-        it('should call callback with ABORT if it is in the future', () => {
-            storeStub.get.yields(null, '1234567891000');
-            instance.getNextCheckTime(cb);
-            cb.should.have.been.calledWithExactly(HmpoCachedModel.ABORT);
+        it('should reject with ABORT if it is in the future', async () => {
+            storeStub.get.resolves('1234567891000');
+            await expectRejected(instance.getNextCheckTime(), HmpoCachedModel.ABORT);
         });
     });
 
@@ -215,12 +215,11 @@ describe('HmpoCachedModel', () => {
             instance.setNextCheckTime.should.be.a('function');
         });
 
-        it('should set next check time to store', () => {
-            instance.setNextCheckTime(cb);
+        it('should set next check time to store', async () => {
+            await instance.setNextCheckTime();
             storeStub.set.should.have.been.calledWithExactly(
                 'root-key-next-check',
-                1234567892000,
-                cb
+                1234567892000
             );
         });
     });
@@ -230,36 +229,34 @@ describe('HmpoCachedModel', () => {
             instance.getDataFromAPI.should.be.a('function');
         });
 
-        it('should call fetch with callback', () => {
-            instance.getDataFromAPI(cb);
+        it('should call fetch with callback', async () => {
+            await instance.getDataFromAPI();
             HmpoModel.prototype.fetch.should.have.been.calledWithExactly(
                 sinon.match.func
             );
         });
 
-        it('should call callback with error from fetch', () => {
+        it('should reject with error from fetch', async () => {
             let err = new Error();
             HmpoModel.prototype.fetch.yields(err);
-            instance.getDataFromAPI(cb);
-            cb.should.have.been.calledWithExactly(err);
+            await expectRejected(instance.getDataFromAPI(), err);
         });
 
-        it('should set last modified to current time', () => {
-            instance.getDataFromAPI(cb);
+        it('should set last modified to current time', async () => {
+            await instance.getDataFromAPI();
             instance.lastModified.should.equal(1234567890000);
         });
 
-        it('should set data to model', () => {
-            instance.getDataFromAPI(cb);
+        it('should set data to model', async () => {
+            await instance.getDataFromAPI();
             HmpoModel.prototype.reset.should.have.been.calledWithExactly();
             HmpoModel.prototype.set.should.have.been.calledWithExactly({
                 a: 1, b: 2
             });
         });
 
-        it('should call the callback', () => {
-            instance.getDataFromAPI(cb);
-            cb.should.have.been.calledWithExactly();
+        it('should resolve', async () => {
+            await instance.getDataFromAPI();
         });
     });
 
@@ -283,13 +280,12 @@ describe('HmpoCachedModel', () => {
             instance.storeDataFromAPI.should.be.a('function');
         });
 
-        it('should set data to store', () => {
+        it('should set data to store', async () => {
             instance.attributes = {a: 1, b: 2};
-            instance.storeDataFromAPI(cb);
+            await instance.storeDataFromAPI();
             storeStub.set.should.have.been.calledWithExactly(
                 'root-key-data',
-                '{"a":1,"b":2}',
-                cb
+                '{"a":1,"b":2}'
             );
         });
     });
@@ -299,21 +295,20 @@ describe('HmpoCachedModel', () => {
             instance.storeLastModifiedFromAPI.should.be.a('function');
         });
 
-        it('should set last modified to store', () => {
+        it('should set last modified to store', async () => {
             instance.lastModified = 12345678;
-            instance.storeLastModifiedFromAPI(cb);
+            await instance.storeLastModifiedFromAPI();
             storeStub.set.should.have.been.calledWithExactly(
                 'root-key-last-modified',
-                12345678,
-                cb
+                12345678
             );
         });
     });
 
     describe('loadFromStore', () => {
         beforeEach(() => {
-            sinon.stub(HmpoCachedModel.prototype, 'checkStoreLastModified').yields();
-            sinon.stub(HmpoCachedModel.prototype, 'getStoreData').yields();
+            sinon.stub(HmpoCachedModel.prototype, 'checkStoreLastModified').resolves();
+            sinon.stub(HmpoCachedModel.prototype, 'getStoreData').resolves();
         });
 
         afterEach(() => {
@@ -325,27 +320,27 @@ describe('HmpoCachedModel', () => {
             instance.loadFromStore.should.be.a('function');
         });
 
-        it('should call methods', () => {
-            instance.loadFromStore();
+        it('should call methods', async () => {
+            await instance.loadFromStore();
             HmpoCachedModel.prototype.checkStoreLastModified.should.have.been.calledOnce;
             HmpoCachedModel.prototype.getStoreData.should.have.been.calledOnce;
         });
 
-        it('should stop and emit an error if an error is returned', () => {
+        it('should stop and emit an error if an error is returned', async () => {
             let err = new Error();
-            HmpoCachedModel.prototype.checkStoreLastModified.yields(err);
+            HmpoCachedModel.prototype.checkStoreLastModified.rejects(err);
 
-            instance.loadFromStore();
+            await instance.loadFromStore();
 
             HmpoCachedModel.prototype.checkStoreLastModified.should.have.been.calledOnce;
             HmpoCachedModel.prototype.getStoreData.should.not.have.been.called;
             HmpoModel.prototype.emit.should.have.been.calledWithExactly('error', err);
         });
 
-        it('should stop and not emit an error if ABORT returned', () => {
-            HmpoCachedModel.prototype.checkStoreLastModified.yields(HmpoCachedModel.ABORT);
+        it('should stop and not emit an error if ABORT returned', async () => {
+            HmpoCachedModel.prototype.checkStoreLastModified.rejects(HmpoCachedModel.ABORT);
 
-            instance.loadFromStore();
+            await instance.loadFromStore();
 
             HmpoCachedModel.prototype.checkStoreLastModified.should.have.been.calledOnce;
             HmpoCachedModel.prototype.getStoreData.should.not.have.been.called;
@@ -355,11 +350,11 @@ describe('HmpoCachedModel', () => {
 
     describe('loadFromApi', () => {
         beforeEach(() => {
-            sinon.stub(HmpoCachedModel.prototype, 'getNextCheckTime').yields();
-            sinon.stub(HmpoCachedModel.prototype, 'setNextCheckTime').yields();
-            sinon.stub(HmpoCachedModel.prototype, 'getDataFromAPI').yields();
-            sinon.stub(HmpoCachedModel.prototype, 'storeDataFromAPI').yields();
-            sinon.stub(HmpoCachedModel.prototype, 'storeLastModifiedFromAPI').yields();
+            sinon.stub(HmpoCachedModel.prototype, 'getNextCheckTime').resolves();
+            sinon.stub(HmpoCachedModel.prototype, 'setNextCheckTime').resolves();
+            sinon.stub(HmpoCachedModel.prototype, 'getDataFromAPI').resolves();
+            sinon.stub(HmpoCachedModel.prototype, 'storeDataFromAPI').resolves();
+            sinon.stub(HmpoCachedModel.prototype, 'storeLastModifiedFromAPI').resolves();
         });
 
         afterEach(() => {
@@ -374,8 +369,8 @@ describe('HmpoCachedModel', () => {
             instance.loadFromApi.should.be.a('function');
         });
 
-        it('should call methods', () => {
-            instance.loadFromApi();
+        it('should call methods', async () => {
+            await instance.loadFromApi();
             HmpoCachedModel.prototype.getNextCheckTime.should.have.been.calledOnce;
             HmpoCachedModel.prototype.setNextCheckTime.should.have.been.calledOnce;
             HmpoCachedModel.prototype.getDataFromAPI.should.have.been.calledOnce;
@@ -383,21 +378,21 @@ describe('HmpoCachedModel', () => {
             HmpoCachedModel.prototype.storeLastModifiedFromAPI.should.have.been.calledOnce;
         });
 
-        it('should stop and emit an error if an error is returned', () => {
+        it('should stop and emit an error if an error is returned', async () => {
             let err = new Error();
-            HmpoCachedModel.prototype.getNextCheckTime.yields(err);
+            HmpoCachedModel.prototype.getNextCheckTime.rejects(err);
 
-            instance.loadFromApi();
+            await instance.loadFromApi();
 
             HmpoCachedModel.prototype.getNextCheckTime.should.have.been.calledOnce;
             HmpoCachedModel.prototype.setNextCheckTime.should.not.have.been.called;
             HmpoModel.prototype.emit.should.have.been.calledWithExactly('error', err);
         });
 
-        it('should stop and not emit an error if ABORT returned', () => {
-            HmpoCachedModel.prototype.getNextCheckTime.yields(HmpoCachedModel.ABORT);
+        it('should stop and not emit an error if ABORT returned', async () => {
+            HmpoCachedModel.prototype.getNextCheckTime.rejects(HmpoCachedModel.ABORT);
 
-            instance.loadFromApi();
+            await instance.loadFromApi();
 
             HmpoCachedModel.prototype.getNextCheckTime.should.have.been.calledOnce;
             HmpoCachedModel.prototype.setNextCheckTime.should.not.have.been.called;
@@ -460,8 +455,8 @@ describe('HmpoCachedModel', () => {
         });
 
         it('should clear the two interval timers', () => {
-            instance.storeTimer = setInterval(()=>{}, 10000);
-            instance.apiTimer = setInterval(()=>{}, 10000);
+            instance.storeTimer = setInterval(() => {}, 10000);
+            instance.apiTimer = setInterval(() => {}, 10000);
             instance.stop();
             expect(instance.storeTimer).to.not.be.ok;
             expect(instance.apiTimer).to.not.be.ok;
