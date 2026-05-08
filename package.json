@@ -4,10 +4,11 @@
   "description": "Cached polling model",
   "main": "lib/index.js",
   "scripts": {
-    "test": "npm run lint && npm run unit && npm run check-coverage && npm audit --omit=dev",
+    "test": "npm run lint && npm run unit && npm run check-coverage && npm audit --omit=dev --registry='https://registry.npmjs.org'",
     "lint": "eslint .",
     "unit": "nyc --reporter=lcov --reporter=text-summary _mocha test/ --recursive",
     "check-coverage": "nyc check-coverage",
+    "resolve": "npm audit fix --registry='https://registry.npmjs.org'; resolve-audit --registry='https://registry.npmjs.org'",
     "prepare": "husky"
   },
   "repository": {
@@ -24,7 +25,6 @@
   },
   "homepage": "https://github.com/HMPO/hmpo-cached-model#readme",
   "dependencies": {
-    "async": "^3.2.5",
     "debug": "4.3.7",
     "hmpo-model": "^7.0.1"
   },
