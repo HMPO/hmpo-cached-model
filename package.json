@@ -25,7 +25,7 @@
   "homepage": "https://github.com/HMPO/hmpo-cached-model#readme",
   "dependencies": {
     "async": "^3.2.5",
-    "debug": "4.3.7",
+    "debug": "4.4.3",
     "hmpo-model": "^7.0.1"
   },
   "devDependencies": {
@@ -34,7 +34,7 @@
     "globals": "^15.9.0",
     "hmpo-logger": "^9.0.0",
     "mocha": "11.3.0",
-    "nyc": "^17.1.0",
+    "nyc": "^18.0.0",
     "sinon": "^21.0.2",
     "sinon-chai": "^3.7.0",
     "husky": "^9.1.6"
